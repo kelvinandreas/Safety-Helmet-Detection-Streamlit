@@ -39,6 +39,7 @@ template_images = {
     "Template 9": "./template/template9.jpg",
     "Template 10": "./template/template10.jpg",
     "Template 11": "./template/template11.jpg",
+    "Cincai ngab": "./template/template12.png",
 }
 
 # Fungsi untuk prediksi dan menggambar kotak deteksi
