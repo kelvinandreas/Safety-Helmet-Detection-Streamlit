@@ -8,6 +8,10 @@ from datetime import datetime
 import time
 import glob
 
+st.set_page_config(
+    page_title="Smart Vision"
+)
+
 # Load YOLO model
 model = YOLO('./model.pt')
 
