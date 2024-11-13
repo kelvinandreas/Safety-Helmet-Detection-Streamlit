@@ -121,12 +121,9 @@ if menu == "Take Picture From Webcam":
                 st.session_state.last_capture_time = current_time
                 st.session_state.image_displayed = False
 
-        with captured_image_display:
-            if not st.session_state.image_displayed and st.session_state.captured_image_path:
-                st.image(st.session_state.captured_image_path, caption=f"Detected Violation {datetime.now().strftime('%d-%m-%Y %H:%M')}", width=300)
-                st.session_state.image_displayed = True
-                
 elif menu == "Real Time Webcam":
+    st.markdown("This feature is only available on local machines💻", unsafe_allow_html=True)
+
     FRAME_WINDOW = st.image([])
     captured_image_display = st.container()
 
