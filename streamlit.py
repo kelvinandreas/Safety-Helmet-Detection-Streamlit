@@ -8,9 +8,7 @@ from datetime import datetime
 import time
 import glob
 
-st.set_page_config(
-    page_title="Smart Vision"
-)
+st.set_page_config(page_title="Smart Vision")
 
 # Load YOLO model
 model = YOLO('./model.pt')
@@ -39,7 +37,6 @@ template_images = {
     "Template 9": "./template/template9.jpg",
     "Template 10": "./template/template10.jpg",
     "Template 11": "./template/template11.jpg",
-    "Cincai ngab": "./template/template12.jpg",
 }
 
 # Fungsi untuk prediksi dan menggambar kotak deteksi
@@ -55,7 +52,7 @@ def predict_and_draw(frame):
         cls = int(box.cls[0].item())
         conf = box.conf[0].item()  # Ambil rasio kepercayaan model (confidence score)
 
-        if conf >= 0.3:  # Hanya plot jika confidence >= 75%
+        if conf >= 0.3:  # Plot hanya jika confidence >= 30%
             if cls == 0 and not no_helmet_detected:  # Helm terdeteksi
                 label = f"PASS ({conf*100:.1f}%)"
                 color = (0, 255, 0)  # Green
@@ -64,7 +61,7 @@ def predict_and_draw(frame):
                 color = (255, 0, 0)  # Red
                 alert = True
                 captured_image = frame[y1:y2, x1:x2]
-                no_helmet_detected = True  # Prioritas jika deteksi tidak memakai helm
+                no_helmet_detected = True
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 4)
             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
@@ -80,19 +77,31 @@ st.title("Smart Vision👁️")
 
 menu = st.selectbox("Select Mode", ["Webcam", "Upload Image", "Use Template"])
 
-# Definisi awal variabel penghapusan periodik
-last_clear_time = time.time()
+# Variabel state Streamlit
+if 'captured_image_path' not in st.session_state:
+    st.session_state.captured_image_path = None
+if 'last_capture_time' not in st.session_state:
+    st.session_state.last_capture_time = 0
+if 'image_displayed' not in st.session_state:
+    st.session_state.image_displayed = False  # Flag untuk kontrol pencetakan gambar
+if 'last_clear_time' not in st.session_state:
+    st.session_state.last_clear_time = time.time()  # Inisialisasi waktu pembersihan terakhir
+
+# Fungsi untuk menghapus semua file di folder
+def clear_folder_except_current(folder, current_file=None):
+    files = glob.glob(os.path.join(folder, '*'))
+    for f in files:
+        if current_file is None or f != current_file:
+            os.remove(f)
 
 if menu == "Webcam":
     FRAME_WINDOW = st.image([])
-    captured_images_container = st.container()
+    captured_image_display = st.container()
 
     cap = cv2.VideoCapture(0)
-    last_capture_time = 0
     capture_interval = 15  # seconds
-    captured_images = []
 
-    while True:
+    while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             st.error("Failed to grab frame.")
@@ -103,27 +112,35 @@ if menu == "Webcam":
 
         FRAME_WINDOW.image(result_frame)
 
-        # if alert and captured_image is not None:
-        #     current_time = time.time()
-        #     if current_time - last_capture_time >= capture_interval:
-        #         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        #         capture_path = os.path.join(capture_folder, f"no_helmet_{timestamp}.png")
-        #         cv2.imwrite(capture_path, cv2.cvtColor(captured_image, cv2.COLOR_RGB2BGR))
-        #         captured_images.append(capture_path)
-        #         last_capture_time = current_time
+        current_time = time.time()
 
-        # with captured_images_container:
-        #     if captured_images:
-        #         cols = st.columns(len(captured_images))
-        #         for i, img_path in enumerate(captured_images):
-        #             with cols[i]:
-        #                 st.image(img_path, caption=f"Captured: {os.path.basename(img_path)}", use_container_width=True)
+        if alert and captured_image is not None:
+            if current_time - st.session_state.last_capture_time >= capture_interval:
+                # Simpan gambar baru
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+                capture_path = os.path.join(capture_folder, f"no_helmet_{timestamp}.png")
+                
+                # Hapus semua file di folder sebelum menyimpan file baru
+                clear_folder_except_current(capture_folder, capture_path)
 
-        # Hapus file setiap 1 menit
-        # if time.time() - last_clear_time >= 60:
-        #     clear_captures(capture_folder)
-        #     captured_images.clear()
-        #     last_clear_time = time.time()
+                # Simpan gambar terbaru
+                cv2.imwrite(capture_path, cv2.cvtColor(captured_image, cv2.COLOR_RGB2BGR))
+                st.session_state.captured_image_path = capture_path
+                st.session_state.last_capture_time = current_time
+                st.session_state.image_displayed = False  # Reset flag agar gambar baru bisa ditampilkan
+
+        # Tampilkan hanya gambar terbaru jika belum pernah dicetak
+        with captured_image_display:
+            if not st.session_state.image_displayed and st.session_state.captured_image_path:
+                st.image(st.session_state.captured_image_path, caption=f"Detected Violation {datetime.now().strftime('%d-%m-%Y %H:%M')}", width=300)
+                st.session_state.image_displayed = True  # Update flag setelah dicetak
+
+        # Hapus file setiap 60 detik
+        if current_time - st.session_state.last_clear_time >= 60:
+            clear_folder_except_current(capture_folder)
+            st.session_state.captured_image_path = None
+            st.session_state.image_displayed = False  # Reset flag
+            st.session_state.last_clear_time = current_time
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
