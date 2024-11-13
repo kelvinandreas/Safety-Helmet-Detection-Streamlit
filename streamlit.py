@@ -127,55 +127,66 @@ elif menu == "Real Time Webcam":
     FRAME_WINDOW = st.image([])
     captured_image_display = st.container()
 
-    cap = cv2.VideoCapture(0)
-    capture_interval = 15  # seconds
+    try:
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            st.error("Webcam cannot be accessed. Please ensure it is connected and try again.")
+            st.stop()
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            st.error("Failed to grab frame.")
-            break
+        capture_interval = 15  # seconds
 
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        result_frame, alert, captured_image = predict_and_draw(frame_rgb)
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                st.warning("Failed to capture frame from webcam.")
+                break
 
-        FRAME_WINDOW.image(result_frame)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            result_frame, alert, captured_image = predict_and_draw(frame_rgb)
 
-        current_time = time.time()
+            FRAME_WINDOW.image(result_frame)
 
-        if alert and captured_image is not None:
-            if current_time - st.session_state.last_capture_time >= capture_interval:
-                # Simpan gambar baru
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-                capture_path = os.path.join(capture_folder, f"no_helmet_{timestamp}.png")
-                
-                # Hapus semua file di folder sebelum menyimpan file baru
-                clear_folder_except_current(capture_folder, capture_path)
+            current_time = time.time()
 
-                # Simpan gambar terbaru
-                cv2.imwrite(capture_path, cv2.cvtColor(captured_image, cv2.COLOR_RGB2BGR))
-                st.session_state.captured_image_path = capture_path
-                st.session_state.last_capture_time = current_time
-                st.session_state.image_displayed = False  # Reset flag agar gambar baru bisa ditampilkan
+            if alert and captured_image is not None:
+                if current_time - st.session_state.last_capture_time >= capture_interval:
+                    # Save new image
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+                    capture_path = os.path.join(capture_folder, f"no_helmet_{timestamp}.png")
 
-        # Tampilkan hanya gambar terbaru jika belum pernah dicetak
-        with captured_image_display:
-            if not st.session_state.image_displayed and st.session_state.captured_image_path:
-                st.image(st.session_state.captured_image_path, caption=f"Detected Violation {datetime.now().strftime('%d-%m-%Y %H:%M')}", width=300)
-                st.session_state.image_displayed = True  # Update flag setelah dicetak
+                    # Clear all files in the folder before saving the new one
+                    clear_folder_except_current(capture_folder, capture_path)
 
-        # Hapus file setiap 60 detik
-        if current_time - st.session_state.last_clear_time >= 60:
-            clear_folder_except_current(capture_folder)
-            st.session_state.captured_image_path = None
-            st.session_state.image_displayed = False  # Reset flag
-            st.session_state.last_clear_time = current_time
+                    # Save the latest image
+                    cv2.imwrite(capture_path, cv2.cvtColor(captured_image, cv2.COLOR_RGB2BGR))
+                    st.session_state.captured_image_path = capture_path
+                    st.session_state.last_capture_time = current_time
+                    st.session_state.image_displayed = False  # Reset flag to allow displaying new image
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            # Display only the latest image if it hasn't been shown yet
+            with captured_image_display:
+                if not st.session_state.image_displayed and st.session_state.captured_image_path:
+                    st.image(st.session_state.captured_image_path, caption=f"Detected Violation {datetime.now().strftime('%d-%m-%Y %H:%M')}", width=300)
+                    st.session_state.image_displayed = True  # Update flag after displaying
 
-    cap.release()
-    cv2.destroyAllWindows()
+            # Clear files every 60 seconds
+            if current_time - st.session_state.last_clear_time >= 60:
+                clear_folder_except_current(capture_folder)
+                st.session_state.captured_image_path = None
+                st.session_state.image_displayed = False  # Reset flag
+                st.session_state.last_clear_time = current_time
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    except cv2.error as e:
+        st.error("An error occurred while processing the webcam. Please try again or check the logs for more details.")
+        st.stop()
+
+    finally:
+        if 'cap' in locals() and cap.isOpened():
+            cap.release()
+        cv2.destroyAllWindows()
 
 elif menu == "Upload Image":
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
