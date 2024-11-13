@@ -186,7 +186,10 @@ elif menu == "Real Time Webcam":
     finally:
         if 'cap' in locals() and cap.isOpened():
             cap.release()
-        cv2.destroyAllWindows()
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            pass
 
 elif menu == "Upload Image":
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
