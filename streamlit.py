@@ -50,15 +50,15 @@ def predict_and_draw(frame):
     for box in boxes:
         x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
         cls = int(box.cls[0].item())
-        conf = box.conf[0].item()  # Ambil rasio kepercayaan model (confidence score)
+        conf = box.conf[0].item()
 
-        if conf >= 0.3:  # Plot hanya jika confidence >= 30%
-            if cls == 0 and not no_helmet_detected:  # Helm terdeteksi
+        if conf >= 0.3:
+            if cls == 0 and not no_helmet_detected:
                 label = f"PASS ({conf*100:.1f}%)"
-                color = (0, 255, 0)  # Green
-            elif cls == 1:  # Tidak memakai helm
+                color = (0, 255, 0)
+            elif cls == 1:
                 label = f"No Helmet ({conf*100:.1f}%)"
-                color = (255, 0, 0)  # Red
+                color = (255, 0, 0)
                 alert = True
                 captured_image = frame[y1:y2, x1:x2]
                 no_helmet_detected = True
@@ -75,7 +75,7 @@ with col2:
     st.image(logo, width=300)
 st.title("Smart Vision👁️")
 
-menu = st.selectbox("Select Mode", ["Webcam", "Upload Image", "Use Template"])
+menu = st.selectbox("Select Mode", ["Take Picture From Webcam", "Real Time Webcam", "Upload Image", "Use Template"])
 
 # Variabel state Streamlit
 if 'captured_image_path' not in st.session_state:
@@ -83,9 +83,9 @@ if 'captured_image_path' not in st.session_state:
 if 'last_capture_time' not in st.session_state:
     st.session_state.last_capture_time = 0
 if 'image_displayed' not in st.session_state:
-    st.session_state.image_displayed = False  # Flag untuk kontrol pencetakan gambar
+    st.session_state.image_displayed = False
 if 'last_clear_time' not in st.session_state:
-    st.session_state.last_clear_time = time.time()  # Inisialisasi waktu pembersihan terakhir
+    st.session_state.last_clear_time = time.time()
 
 # Fungsi untuk menghapus semua file di folder
 def clear_folder_except_current(folder, current_file=None):
@@ -94,7 +94,39 @@ def clear_folder_except_current(folder, current_file=None):
         if current_file is None or f != current_file:
             os.remove(f)
 
-if menu == "Webcam":
+if menu == "Take Picture From Webcam":
+    captured_image_display = st.container()
+    img_file_buffer = st.camera_input("Capture an image")
+
+    if img_file_buffer is not None:
+        bytes_data = img_file_buffer.getvalue()
+        frame = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        result_frame, alert, captured_image = predict_and_draw(frame_rgb)
+
+        st.image(result_frame, caption="Detection Result", use_container_width=True)
+
+        current_time = time.time()
+        capture_interval = 15  # seconds
+
+        if alert and captured_image is not None:
+            if current_time - st.session_state.last_capture_time >= capture_interval:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+                capture_path = os.path.join(capture_folder, f"no_helmet_{timestamp}.png")
+
+                clear_folder_except_current(capture_folder, capture_path)
+
+                cv2.imwrite(capture_path, cv2.cvtColor(captured_image, cv2.COLOR_RGB2BGR))
+                st.session_state.captured_image_path = capture_path
+                st.session_state.last_capture_time = current_time
+                st.session_state.image_displayed = False
+
+        with captured_image_display:
+            if not st.session_state.image_displayed and st.session_state.captured_image_path:
+                st.image(st.session_state.captured_image_path, caption=f"Detected Violation {datetime.now().strftime('%d-%m-%Y %H:%M')}", width=300)
+                st.session_state.image_displayed = True
+                
+elif menu == "Real Time Webcam":
     FRAME_WINDOW = st.image([])
     captured_image_display = st.container()
 
