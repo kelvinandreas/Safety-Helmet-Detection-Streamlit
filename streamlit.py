@@ -31,12 +31,10 @@ template_images = {
     "Template 3": "./template/template3.jpg",
     "Template 4": "./template/template4.jpeg",
     "Template 5": "./template/template5.jpg",
-    "Template 6": "./template/template6.jpg",
-    "Template 7": "./template/template7.jpg",
-    "Template 8": "./template/template8.jpg",
-    "Template 9": "./template/template9.jpg",
-    "Template 10": "./template/template10.jpg",
-    "Template 11": "./template/template11.jpg",
+    "Template 6": "./template/template8.jpg",
+    "Template 7": "./template/template9.jpg",
+    "Template 8": "./template/template10.jpg",
+    "Template 9": "./template/template11.jpg",
 }
 
 # Fungsi untuk prediksi dan menggambar kotak deteksi
